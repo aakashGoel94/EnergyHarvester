@@ -8,13 +8,18 @@
 
 #include "network_info.h"
 
-linkaddr_t recievedMessage;
-u8_int energyReading;
-char s_v ='S';
-const u8_int t2 = 80;
-const u8_int t1 = 40;
-const u8_int t0 = 20;
+#define time2 CLOCK_SECOND*2
+#define time1 CLOCK_SECOND
 
+
+int recievedMessage;
+uint8_t energyReading;
+char s_v ='S';
+const uint8_t threshold2 = 80;
+const uint8_t threshold1 = 40;
+const uint8_t threshold0 = 20;		
+bool b_mess = FALSE;
+bool u_mess = FALSE;
 
 PROCESS(client_process, "Main Process");
 PROCESS(energy_reading, "Energy Reader");
@@ -25,22 +30,33 @@ AUTOSTART_PROCESSES(&client_process, &energy_reading);
 
 static void recv(struct broadcast_conn *c, const linkaddr_t *from)
 {
-  recievedMessage = &from;
+  //if message recieved the set b_mess to true
+  b_mess = TRUE;
 }
 
+
+
+static void recv_uc(struct unicast_conn *c, const rimeaddr_t *from)
+{
+  //if message recieved then set u_mess to true
+  u_mess = TRUE;
+}
 
 static struct broadcast_conn bc;
 
 static struct broad_callbacks bc_callback = {recv};
 
 
+//TIMER
+static struct etimer et;
+        etimer_set(&et, CLOCK_SECOND);
 
 
 PROCESS_THREAD(client_process, ev, data)
 {
   PROCESS_BEGIN();
 
-  broadcast_open(&bc, CLICKER_CHANNEL, &bc_callback );
+  
 
   cc2420_set_channel(IEEE802_15_4_CHANNEL);
 
@@ -68,7 +84,7 @@ switch(s_v)
       if(energyReading>t2)
 	{
 	  //setup RIME buffer and check if anything has been recieved
-	  if(1)
+	  if(b_mess)
 	    {
 	      s_v = 'W';
 	    }
@@ -87,9 +103,6 @@ switch(s_v)
     {
       if(energyReading>t0)
 	{
-	   //setup timer
-	  static struct etimer et;
-        etimer_set(&et, CLOCK_SECOND);
 	  //send information including energy level
 	  if(1)      //if message sent successfully and timer not expired
 	    {
@@ -111,7 +124,7 @@ switch(s_v)
       if(energyReading>t0)
 	{
 	  //check if order has been recieved
-	  if(1)                 //message recieved
+	  if(u_mess)                 //message recieved
 	    {
 	      s_v = 'O';
 	    }
